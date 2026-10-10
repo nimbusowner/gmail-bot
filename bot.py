@@ -3,6 +3,7 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
@@ -68,15 +69,12 @@ try:
     time.sleep(3)
     save_debug("debug_2_basic.html")
 
-    # Месяц (кастомный dropdown)
+    # Месяц
     month_field = wait.until(EC.element_to_be_clickable((By.ID, "month")))
     month_field.click()
     print("Кликнули по месяцу")
     time.sleep(1)
-
-    month_option = wait.until(EC.element_to_be_clickable(
-        (By.XPATH, "//li[@data-value='5']")
-    ))
+    month_option = wait.until(EC.element_to_be_clickable((By.XPATH, "//li[@data-value='5']")))
     month_option.click()
     print("Месяц выбран")
 
@@ -90,18 +88,40 @@ try:
     year_input.send_keys("1990")
     print("Год введён")
 
-    # Пол (кастомный dropdown)
+    # Пол — пробуем несколько способов
+    print("Выбираем пол...")
+    time.sleep(2)
     gender_field = wait.until(EC.element_to_be_clickable((By.ID, "gender")))
-    gender_field.click()
-    print("Кликнули по полу")
+    driver.execute_script("arguments[0].click();", gender_field)
+    print("Кликнули по полу через JS")
+    time.sleep(2)
+
+    found = False
+    for xpath in [
+        "//li[@data-value='1']",
+        "//div[@role='option'][@data-value='1']",
+        "//li[contains(., 'Male')]",
+        "//div[@role='option'][contains(., 'Male')]",
+        "//span[contains(text(), 'Male')]/..",
+    ]:
+        try:
+            option = driver.find_element(By.XPATH, xpath)
+            driver.execute_script("arguments[0].click();", option)
+            print("Пол выбран через: " + xpath)
+            found = True
+            break
+        except Exception:
+            continue
+
+    if not found:
+        print("Не нашли опцию пола. Пробуем клавиатуру...")
+        save_debug("debug_gender.html")
+        gender_field.send_keys(Keys.ARROW_DOWN)
+        time.sleep(1)
+        gender_field.send_keys(Keys.ENTER)
+        print("Попробовали выбрать через клавиатуру")
+
     time.sleep(1)
-
-    gender_option = wait.until(EC.element_to_be_clickable(
-        (By.XPATH, "//li[@data-value='1']")
-    ))
-    gender_option.click()
-    print("Пол выбран")
-
     click_next()
 
     # Шаг 3: Логин
