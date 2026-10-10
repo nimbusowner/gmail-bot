@@ -1,14 +1,11 @@
 import time
-import random
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import Select
 
-# Данные для аккаунта
 FIRST_NAME = "Ivan"
 LAST_NAME = "Petrov"
 USERNAME = "ivanpetrov" + str(int(time.time()))
@@ -40,7 +37,6 @@ def save_debug(name):
 
 
 def click_next():
-    """Находит и нажимает кнопку 'Next'."""
     time.sleep(2)
     next_btn = wait.until(EC.element_to_be_clickable(
         (By.XPATH, "//button[.//span[contains(text(), 'Next') or contains(text(), 'Далее')]]")
@@ -67,34 +63,48 @@ try:
     save_debug("debug_1_name.html")
     click_next()
 
-    # Шаг 2: Дата рождения и Пол (Экран "Basic information")
+    # Шаг 2: Дата рождения и Пол
     print("Заполняем дату рождения и пол...")
     time.sleep(3)
     save_debug("debug_2_basic.html")
 
-    # Выбираем месяц
-    month_select = wait.until(EC.presence_of_element_located((By.ID, "month")))
-    Select(month_select).select_by_value("5")  # Май (значения от 1 до 12)
+    # Месяц (кастомный dropdown)
+    month_field = wait.until(EC.element_to_be_clickable((By.ID, "month")))
+    month_field.click()
+    print("Кликнули по месяцу")
+    time.sleep(1)
+
+    month_option = wait.until(EC.element_to_be_clickable(
+        (By.XPATH, "//li[@data-value='5']")
+    ))
+    month_option.click()
     print("Месяц выбран")
 
-    # Вводим день
+    # День
     day_input = driver.find_element(By.ID, "day")
     day_input.send_keys("15")
     print("День введён")
 
-    # Вводим год
+    # Год
     year_input = driver.find_element(By.ID, "year")
     year_input.send_keys("1990")
     print("Год введён")
 
-    # Выбираем пол
-    gender_select = driver.find_element(By.ID, "gender")
-    Select(gender_select).select_by_value("1")  # 1 = Male, 2 = Female
+    # Пол (кастомный dropdown)
+    gender_field = wait.until(EC.element_to_be_clickable((By.ID, "gender")))
+    gender_field.click()
+    print("Кликнули по полу")
+    time.sleep(1)
+
+    gender_option = wait.until(EC.element_to_be_clickable(
+        (By.XPATH, "//li[@data-value='1']")
+    ))
+    gender_option.click()
     print("Пол выбран")
 
     click_next()
 
-    # Шаг 3: Логин (Username)
+    # Шаг 3: Логин
     print("Пытаемся ввести логин...")
     time.sleep(3)
     save_debug("debug_3_username.html")
