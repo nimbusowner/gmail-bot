@@ -26,12 +26,12 @@ jobs:
         run: python bot.py
         continue-on-error: true
 
-      - name: Upload debug files
+      - name: Upload results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: debug-html
+          name: results
           path: |
-            debug.html
-            debug_after.html
+            accounts.txt
+            debug_*.html
             *.png
