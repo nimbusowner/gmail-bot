@@ -43,12 +43,29 @@ def save_debug(driver, name):
 
 
 def click_next(wait):
+    """Нажимает кнопку Next с несколькими попытками."""
     time.sleep(2)
-    btn = wait.until(EC.element_to_be_clickable(
-        (By.XPATH, "//button[.//span[contains(text(), 'Next') or contains(text(), 'Далее')]]")
-    ))
-    btn.click()
-    time.sleep(3)
+    for xpath in [
+        "//button[.//span[contains(text(), 'Next')]]",
+        "//button[.//span[contains(text(), 'Далее')]]",
+        "//button[contains(., 'Next')]",
+        "//button[contains(., 'Далее')]",
+    ]:
+        try:
+            btn = wait.until(EC.element_to_be_clickable((By.XPATH, xpath)))
+            driver_js_click(btn)
+            time.sleep(3)
+            return True
+        except Exception:
+            continue
+    return False
+
+
+def driver_js_click(element):
+    """Кликает через JavaScript — надёжнее обычного клика."""
+    from selenium.webdriver.remote.webelement import WebElement
+    driver = element.parent
+    driver.execute_script("arguments[0].click();", element)
 
 
 def create_one_account(driver, first, last, username, password, index):
@@ -63,46 +80,78 @@ def create_one_account(driver, first, last, username, password, index):
         fn.send_keys(first)
         driver.find_element(By.NAME, "lastName").send_keys(last)
         print(f"  Имя/Фамилия: {first} {last}")
-        click_next(wait)
+        if not click_next(wait):
+            print("  !!! Не нашли кнопку Next (шаг 1) !!!")
+            return None
 
-        # Дата рождения и пол
+        # Дата рождения
         time.sleep(3)
-        wait.until(EC.element_to_be_clickable((By.ID, "month"))).click()
+        month_field = wait.until(EC.element_to_be_clickable((By.ID, "month")))
+        driver.execute_script("arguments[0].click();", month_field)
         time.sleep(1)
-        wait.until(EC.element_to_be_clickable((By.XPATH, "//li[@data-value='5']"))).click()
+        month_opt = wait.until(EC.element_to_be_clickable((By.XPATH, "//li[@data-value='5']")))
+        driver.execute_script("arguments[0].click();", month_opt)
         driver.find_element(By.ID, "day").send_keys("15")
         driver.find_element(By.ID, "year").send_keys("1990")
         print("  Дата рождения введена")
 
-        wait.until(EC.element_to_be_clickable((By.ID, "gender"))).click()
-        time.sleep(1)
-        wait.until(EC.element_to_be_clickable((By.XPATH, "//li[@data-value='1']"))).click()
-        print("  Пол выбран")
-        click_next(wait)
+        # Пол
+        gender_field = wait.until(EC.element_to_be_clickable((By.ID, "gender")))
+        driver.execute_script("arguments[0].click();", gender_field)
+        time.sleep(2)
+
+        found = False
+        for xpath in [
+            "//li[@data-value='1']",
+            "//div[@role='option'][@data-value='1']",
+            "//li[contains(., 'Male')]",
+            "//div[@role='option'][contains(., 'Male')]",
+        ]:
+            try:
+                opt = driver.find_element(By.XPATH, xpath)
+                driver.execute_script("arguments[0].click();", opt)
+                print(f"  Пол выбран")
+                found = True
+                break
+            except Exception:
+                continue
+
+        if not found:
+            print("  !!! Не нашли опцию пола !!!")
+            return None
+
+        # Жмём Next после пола
+        if not click_next(wait):
+            print("  !!! Не нашли кнопку Next (шаг 2) !!!")
+            save_debug(driver, f"debug_{index}_next_fail.html")
+            return None
+        print("  Шаг 2 пройден")
 
         # Логин
         time.sleep(3)
-        save_debug(driver, f"debug_{index}_username.html")
-        print("  URL после пола: " + driver.current_url)
+        print(f"  URL после пола: {driver.current_url}")
 
         try:
             un = wait.until(EC.presence_of_element_located((By.NAME, "Username")))
             un.send_keys(username)
             print(f"  Логин: {username}")
         except Exception:
-            print("  !!! Google не показал поле логина (капча или бан) !!!")
+            print("  !!! Google не показал поле Username (капча или бан) !!!")
+            save_debug(driver, f"debug_{index}_username.html")
             return None
 
         # Пароль
         driver.find_element(By.NAME, "Passwd").send_keys(password)
         driver.find_element(By.NAME, "ConfirmPasswd").send_keys(password)
         print("  Пароль введён")
-        click_next(wait)
+        if not click_next(wait):
+            print("  !!! Не нашли кнопку Next (шаг 3) !!!")
+            return None
 
-        # Пропуск телефона
+        # Skip телефон
         time.sleep(5)
         save_debug(driver, f"debug_{index}_phone.html")
-        print("  URL после пароля: " + driver.current_url)
+        print(f"  URL после пароля: {driver.current_url}")
 
         skipped = False
         for xpath in [
@@ -113,8 +162,8 @@ def create_one_account(driver, first, last, username, password, index):
         ]:
             try:
                 skip_btn = driver.find_element(By.XPATH, xpath)
-                skip_btn.click()
-                print("  Нажата кнопка Skip")
+                driver.execute_script("arguments[0].click();", skip_btn)
+                print("  Нажата Skip")
                 skipped = True
                 time.sleep(3)
                 break
@@ -122,10 +171,9 @@ def create_one_account(driver, first, last, username, password, index):
                 continue
 
         if not skipped:
-            print("  !!! Кнопки Skip нет — Google требует телефон. Аккаунт НЕ создан.")
+            print("  !!! Кнопки Skip нет — Google требует телефон !!!")
             return None
 
-        # Проверка финального URL
         time.sleep(3)
         if "myaccount.google.com" in driver.current_url:
             print(f"  ✅ АККАУНТ СОЗДАН: {username}@gmail.com : {password}")
@@ -153,23 +201,19 @@ def main():
     for i in range(COUNT):
         print(f"\n--- Попытка {i + 1}/{COUNT} ---")
         first, last, username, password = generate_user_data()
-
         result = create_one_account(driver, first, last, username, password, i + 1)
         if result:
             created.append(result)
-
         time.sleep(8)
 
     driver.quit()
 
-    # Сохраняем результаты в файл
     with open("accounts.txt", "w", encoding="utf-8") as f:
         for acc in created:
             f.write(f"{acc['email']}:{acc['password']}\n")
 
     print("\n" + "=" * 50)
     print(f"ИТОГО СОЗДАНО: {len(created)} из {COUNT}")
-    print("Результаты в файле accounts.txt")
     print("=" * 50)
 
 
